@@ -240,7 +240,7 @@ export default function DownTrack() {
   const deleteEntry=async(id: string)=>{await supabase.from('entries').delete().eq('id',id);setDeleteConfirm(null);setEditingId(null);};
   const cycleFlag=async(id: string,field: string)=>{
     const entry=entries.find(e=>e.id===id);if(!entry)return;
-    const cur=(entry as Record<string, unknown>)[field] as boolean|null;
+    const cur=field==="inventory_adj"?entry.inventory_adj:entry.repair_log;
     const next=cur===null?true:cur===true?false:null;
     await supabase.from('entries').update({[field]:next}).eq('id',id);
   };
