@@ -7,22 +7,22 @@ import { supabase } from "@/lib/supabase";
 // ============================================================
 
 const GEN2_SECTIONS = [
-  { id: "startup", name: "Maintenance", type: "single" as const },
-  { id: "printer", name: "Printer", type: "single" as const },
-  { id: "sec-a", name: "Sec A", type: "stations" as const, stations: Array.from({ length: 12 }, (_, i) => String(i + 1)) },
-  { id: "sec-b", name: "Sec B", type: "stations" as const, stations: ["1", "2", "3", "4", "Dial 1", "Dial 2"] },
-  { id: "sec-c", name: "Sec C", type: "single" as const },
+  { id: "startup", name: "Maintenance", type: "single" },
+  { id: "printer", name: "Printer", type: "single" },
+  { id: "sec-a", name: "Sec A", type: "stations", stations: Array.from({ length: 12 }, (_, i) => String(i + 1)) },
+  { id: "sec-b", name: "Sec B", type: "stations", stations: ["1", "2", "3", "4", "Dial 1", "Dial 2"] },
+  { id: "sec-c", name: "Sec C", type: "single" },
 ];
 const GEN3_AUTO = ["10-1","10-2","20","30","40","50-1","50-2","60","70-1","70-2","80","90-1","90-2","100-1","100-2","110-1","110-2","130-1","140-1","140-2","150","160","180-1","180-2","190-1","190-2","200-1","200-2","200-3","205","210","220","225","240","250","255","260-1","260-2"];
 const GEN3_SECTIONS = [
-  { id: "startup", name: "Maintenance", type: "single" as const },
-  { id: "printer", name: "Printer", type: "single" as const },
-  { id: "automation", name: "Automation", type: "stations" as const, stations: GEN3_AUTO },
-  { id: "omag", name: "Omag", type: "stations" as const, stations: ["Warehouse", "Poucher", "Randomizer"] },
+  { id: "startup", name: "Maintenance", type: "single" },
+  { id: "printer", name: "Printer", type: "single" },
+  { id: "automation", name: "Automation", type: "stations", stations: GEN3_AUTO },
+  { id: "omag", name: "Omag", type: "stations", stations: ["Warehouse", "Poucher", "Randomizer"] },
 ];
 const PKG_SECTIONS = [
-  { id: "startup", name: "Maintenance", type: "single" as const },
-  { id: "packager-unit", name: "Packager Unit", type: "single" as const },
+  { id: "startup", name: "Maintenance", type: "single" },
+  { id: "packager-unit", name: "Packager Unit", type: "single" },
 ];
 const LINES = [
   { id: "line-3", name: "Line 3", gen: "Gen 2", color: "#2A6070", sections: GEN2_SECTIONS },
@@ -34,39 +34,31 @@ const LINES = [
   { id: "pkg-2", name: "Packager 2", gen: "Packaging", color: "#6EAE72", sections: PKG_SECTIONS },
 ];
 
-const SEC_ICONS: Record<string, string> = { startup:"🔄", printer:"🖨", "sec-a":"🅰️", "sec-b":"🅱️", "sec-c":"©️", automation:"⚙️", omag:"📦", "packager-unit":"📦", other:"📝" };
-const SEC_COLORS: Record<string, string> = { startup:"#D97706", printer:"#E8763A", "sec-a":"#5B8DEF", "sec-b":"#9B7DC9", "sec-c":"#D4A843", automation:"#3B82A0", omag:"#6EAE72", "packager-unit":"#6EAE72", other:"#8C9AA5" };
-const DTYPE: Record<string, {label: string, color: string, icon: string}> = { unplanned:{ label:"Unplanned", color:"#C75D5D", icon:"⚠" }, startup:{ label:"Maintenance", color:"#D97706", icon:"🔄" } };
+const SEC_ICONS = { startup:"🔄", printer:"🖨", "sec-a":"🅰️", "sec-b":"🅱️", "sec-c":"©️", automation:"⚙️", omag:"📦", "packager-unit":"📦", other:"📝" };
+const SEC_COLORS = { startup:"#D97706", printer:"#E8763A", "sec-a":"#5B8DEF", "sec-b":"#9B7DC9", "sec-c":"#D4A843", automation:"#3B82A0", omag:"#6EAE72", "packager-unit":"#6EAE72", other:"#8C9AA5" };
+const DTYPE = { unplanned:{ label:"Unplanned", color:"#C75D5D", icon:"⚠" }, startup:{ label:"Maintenance", color:"#D97706", icon:"🔄" } };
 
-interface Tech { id: string; name: string; initials: string; }
-interface Entry {
-  id: string; tech_id: string; tech_name: string; line_name: string; line_id: string; line_gen: string;
-  section: string; station: string; dtype: string; issue: string; fix: string; part_replaced: string | null;
-  inventory_adj: boolean | null; repair_log: boolean | null; duration_ms: number; start_time: string;
-  end_time: string; created_at: string;
-}
-
-const fmtTimer = (ms: number) => { const t=Math.floor(ms/1000),h=Math.floor(t/3600),m=Math.floor((t%3600)/60),s=t%60; return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; };
-const fmtDur = (ms: number) => { const m=Math.round(ms/60000); if(m<1)return"<1m"; if(m<60)return`${m}m`; const h=Math.floor(m/60),r=m%60; return r>0?`${h}h ${r}m`:`${h}h`; };
-const dk = (ts: string | number) => { const d=new Date(ts); return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
-const dLabel = (key: string) => { const[y,mo,d]=key.split("-").map(Number); const dt=new Date(y,mo-1,d); const today=dk(Date.now()); const yd=new Date();yd.setDate(yd.getDate()-1); if(key===today)return"Today"; if(key===dk(yd.getTime()))return"Yesterday"; return dt.toLocaleDateString("en-CA",{weekday:"short",month:"short",day:"numeric"}); };
-const fmtTime = (ts: string) => new Date(ts).toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit",hour12:true});
-const fmtDateFull = (key: string) => { const[y,mo,d]=key.split("-").map(Number); return new Date(y,mo-1,d).toLocaleDateString("en-CA",{weekday:"long",year:"numeric",month:"long",day:"numeric"}); };
+const fmtTimer = (ms) => { const t=Math.floor(ms/1000),h=Math.floor(t/3600),m=Math.floor((t%3600)/60),s=t%60; return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; };
+const fmtDur = (ms) => { const m=Math.round(ms/60000); if(m<1)return"<1m"; if(m<60)return`${m}m`; const h=Math.floor(m/60),r=m%60; return r>0?`${h}h ${r}m`:`${h}h`; };
+const dk = (ts) => { const d=new Date(ts); return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const dLabel = (key) => { const[y,mo,d]=key.split("-").map(Number); const dt=new Date(y,mo-1,d); const today=dk(Date.now()); const yd=new Date();yd.setDate(yd.getDate()-1); if(key===today)return"Today"; if(key===dk(yd.getTime()))return"Yesterday"; return dt.toLocaleDateString("en-CA",{weekday:"short",month:"short",day:"numeric"}); };
+const fmtTime = (ts) => new Date(ts).toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit",hour12:true});
+const fmtDateFull = (key) => { const[y,mo,d]=key.split("-").map(Number); return new Date(y,mo-1,d).toLocaleDateString("en-CA",{weekday:"long",year:"numeric",month:"long",day:"numeric"}); };
 const ff = "'DM Sans', system-ui, sans-serif";
 
-function TextArea({value,onValueChange,placeholder,autoFocus,style}: {value: string, onValueChange: (v: string) => void, placeholder: string, autoFocus?: boolean, style: React.CSSProperties}) {
-  const ref=useRef<HTMLTextAreaElement>(null);
-  useEffect(()=>{if(autoFocus&&ref.current)setTimeout(()=>ref.current?.focus(),100);},[autoFocus]);
+function TextArea({value,onValueChange,placeholder,autoFocus,style}) {
+  const ref=useRef(null);
+  useEffect(()=>{if(autoFocus&&ref.current)setTimeout(()=>ref.current&&ref.current.focus(),100);},[autoFocus]);
   return <textarea ref={ref} value={value} onChange={e=>onValueChange(e.target.value)} placeholder={placeholder} style={style} spellCheck={false} autoComplete="off" autoCorrect="off"/>;
 }
 
-const inputS: React.CSSProperties = { width:"100%", padding:"10px 14px", border:"2px solid #E4E7EB", borderRadius:10, fontSize:14, fontFamily:ff, color:"#1B3A4B", outline:"none", boxSizing:"border-box", minHeight:70, resize:"vertical" };
-const labelS: React.CSSProperties = { display:"block", fontSize:12, fontWeight:700, color:"#5A6872", textTransform:"uppercase", letterSpacing:0.8, marginBottom:6 };
-const backS: React.CSSProperties = { background:"none", border:"none", color:"#8C9AA5", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:ff, padding:"4px 0", marginBottom:10 };
-const btnPrimary = (ok: boolean): React.CSSProperties => ({ width:"100%", padding:"14px", borderRadius:10, border:"none", fontSize:15, fontWeight:700, fontFamily:ff, cursor:ok?"pointer":"default", background:ok?"linear-gradient(135deg,#1B3A4B,#2A6070)":"#CDD2D8", color:"#fff", transition:"all 0.15s" });
-const tBadge = (t: string): React.CSSProperties => { const d=DTYPE[t]||DTYPE.unplanned; return{ display:"inline-block", padding:"3px 10px", borderRadius:6, fontSize:11, fontWeight:700, background:`${d.color}18`, color:d.color }; };
+const inputS = { width:"100%", padding:"10px 14px", border:"2px solid #E4E7EB", borderRadius:10, fontSize:14, fontFamily:ff, color:"#1B3A4B", outline:"none", boxSizing:"border-box", minHeight:70, resize:"vertical" };
+const labelS = { display:"block", fontSize:12, fontWeight:700, color:"#5A6872", textTransform:"uppercase", letterSpacing:0.8, marginBottom:6 };
+const backS = { background:"none", border:"none", color:"#8C9AA5", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:ff, padding:"4px 0", marginBottom:10 };
+const btnPrimary = (ok) => ({ width:"100%", padding:"14px", borderRadius:10, border:"none", fontSize:15, fontWeight:700, fontFamily:ff, cursor:ok?"pointer":"default", background:ok?"linear-gradient(135deg,#1B3A4B,#2A6070)":"#CDD2D8", color:"#fff", transition:"all 0.15s" });
+const tBadge = (t) => { const d=DTYPE[t]||DTYPE.unplanned; return{ display:"inline-block", padding:"3px 10px", borderRadius:6, fontSize:11, fontWeight:700, background:`${d.color}18`, color:d.color }; };
 
-function Toggle({value, onChange, label, yesLabel="Yes", noLabel="No"}: {value: boolean | null, onChange: (v: boolean) => void, label?: string, yesLabel?: string, noLabel?: string}) {
+function Toggle({value, onChange, label, yesLabel="Yes", noLabel="No"}) {
   return (
     <div style={{marginBottom:10}}>
       {label && <div style={{...labelS, marginBottom:4}}>{label}</div>}
@@ -78,7 +70,7 @@ function Toggle({value, onChange, label, yesLabel="Yes", noLabel="No"}: {value: 
   );
 }
 
-function TypeSelector({value,onChange,small}: {value: string, onChange: (v: string) => void, small?: boolean}) {
+function TypeSelector({value,onChange,small}) {
   return (
     <div style={{display:"flex",gap:6}}>
       {Object.entries(DTYPE).map(([key,d])=>(
@@ -88,8 +80,8 @@ function TypeSelector({value,onChange,small}: {value: string, onChange: (v: stri
   );
 }
 
-function StatusPill({label, value, onCycle, colors}: {label: string, value: boolean | null, onCycle: () => void, colors?: {yesBg?: string, yesColor?: string, noBg?: string, noColor?: string}}) {
-  const states = [{val:null as boolean|null,label:"—",bg:"#F0F2F5",color:"#8C9AA5"},{val:true as boolean|null,label:"Yes",bg:colors?.yesBg||"#D1FAE5",color:colors?.yesColor||"#059669"},{val:false as boolean|null,label:"No",bg:colors?.noBg||"#FEE2E2",color:colors?.noColor||"#DC2626"}];
+function StatusPill({label, value, onCycle, colors}) {
+  const states = [{val:null ,label:"—",bg:"#F0F2F5",color:"#8C9AA5"},{val:true ,label:"Yes",bg:colors?.yesBg||"#D1FAE5",color:colors?.yesColor||"#059669"},{val:false ,label:"No",bg:colors?.noBg||"#FEE2E2",color:colors?.noColor||"#DC2626"}];
   const cur = states.find(s=>s.val===value)||states[0];
   return (
     <button onClick={onCycle} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:6,border:"1px solid #E4E7EB",background:cur.bg,color:cur.color,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:ff,transition:"all 0.12s"}}>
@@ -102,34 +94,36 @@ function StatusPill({label, value, onCycle, colors}: {label: string, value: bool
 // MAIN APP
 // ============================================================
 export default function DownTrack() {
+  // Hydration fix
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
   // Auth
-  const [currentTech, setCurrentTech] = useState<Tech | null>(null);
-  const [techList, setTechList] = useState<Tech[]>([]);
+  const [currentTech, setCurrentTech] = useState(null);
+  const [techList, setTechList] = useState([]);
   const [newTechName, setNewTechName] = useState("");
   const [newTechInitials, setNewTechInitials] = useState("");
 
   // App state
   const [tab,setTab]=useState("log");
   const [step,setStep]=useState("line");
-  const [line,setLine]=useState<typeof LINES[0] | null>(null);
-  const [section,setSection]=useState<typeof GEN2_SECTIONS[0] | null>(null);
-  const [station,setStation]=useState<string | null>(null);
+  const [line,setLine]=useState(null);
+  const [section,setSection]=useState(null);
+  const [station,setStation]=useState(null);
   const [timerStart,setTimerStart]=useState<number | null>(null);
   const [elapsed,setElapsed]=useState(0);
   const [dtype,setDtype]=useState("unplanned");
   const [issueText,setIssueText]=useState("");
   const [fixText,setFixText]=useState("");
-  const [partReplaced,setPartReplaced]=useState<boolean | null>(null);
+  const [partReplaced,setPartReplaced]=useState(null);
   const [partName,setPartName]=useState("");
-  const [entries,setEntries]=useState<Entry[]>([]);
+  const [entries,setEntries]=useState([]);
   const [success,setSuccess]=useState(false);
   const [fDate,setFDate]=useState(dk(Date.now()));
   const [fLine,setFLine]=useState("all");
   const [fType,setFType]=useState("all");
-  const [hover,setHover]=useState<string | null>(null);
-  const [editingId,setEditingId]=useState<string | null>(null);
+  const [hover,setHover]=useState(null);
+  const [editingId,setEditingId]=useState(null);
   const [editIssue,setEditIssue]=useState("");
   const [editFix,setEditFix]=useState("");
   const [editDtype,setEditDtype]=useState("unplanned");
@@ -137,10 +131,10 @@ export default function DownTrack() {
   const [editLine,setEditLine]=useState("");
   const [editSection,setEditSection]=useState("");
   const [editStation,setEditStation]=useState("");
-  const [editPartReplaced,setEditPartReplaced]=useState<boolean | null>(null);
+  const [editPartReplaced,setEditPartReplaced]=useState(null);
   const [editPartName,setEditPartName]=useState("");
-  const [deleteConfirm,setDeleteConfirm]=useState<string | null>(null);
-  const [reportData,setReportData]=useState<Record<string, unknown> | null>(null);
+  const [deleteConfirm,setDeleteConfirm]=useState(null);
+  const [reportData,setReportData]=useState(null);
   const [copied,setCopied]=useState(false);
   const [showSummary,setShowSummary]=useState(false);
   const [summaryTechs,setSummaryTechs]=useState("");
@@ -150,7 +144,7 @@ export default function DownTrack() {
   const [summaryQuality,setSummaryQuality]=useState("N/A");
   const [summaryScheduledPM,setSummaryScheduledPM]=useState("N/A");
   const [summaryCalibrations,setSummaryCalibrations]=useState("N/A");
-  const [summaryStartups,setSummaryStartups]=useState<Record<string, boolean>>({});
+  const [summaryStartups,setSummaryStartups]=useState({});
 
   // Load techs
   useEffect(()=>{
@@ -173,11 +167,11 @@ export default function DownTrack() {
       .on('postgres_changes', {event:'INSERT', schema:'public', table:'entries'}, (payload) => {
         setEntries(prev => {
           if(prev.find(e=>e.id===payload.new.id)) return prev;
-          return [payload.new as Entry, ...prev];
+          return [payload.new, ...prev];
         });
       })
       .on('postgres_changes', {event:'UPDATE', schema:'public', table:'entries'}, (payload) => {
-        setEntries(prev => prev.map(e => e.id === payload.new.id ? payload.new as Entry : e));
+        setEntries(prev => prev.map(e => e.id === payload.new.id ? payload.new : e));
       })
       .on('postgres_changes', {event:'DELETE', schema:'public', table:'entries'}, (payload) => {
         setEntries(prev => prev.filter(e => e.id !== payload.old.id));
@@ -192,7 +186,7 @@ export default function DownTrack() {
 
   const resetLog=useCallback(()=>{setStep("line");setLine(null);setSection(null);setStation(null);setTimerStart(null);setElapsed(0);setIssueText("");setFixText("");setDtype("unplanned");setPartReplaced(null);setPartName("");},[]);
 
-  const goTimer=(ln: typeof LINES[0],sec: string,stn: string)=>{setLine(ln);setSection(null);setStation(stn);setDtype(sec==="Maintenance"?"startup":"unplanned");setTimerStart(Date.now());setElapsed(0);setStep("timer");
+  const goTimer=(ln: typeof LINES[0],sec,stn)=>{setLine(ln);setSection(null);setStation(stn);setDtype(sec==="Maintenance"?"startup":"unplanned");setTimerStart(Date.now());setElapsed(0);setStep("timer");
     // Store section name for display
     setSectionName(sec);
   };
@@ -225,7 +219,7 @@ export default function DownTrack() {
 
   const startEdit=(e: Entry)=>{setEditingId(e.id);setEditIssue(e.issue);setEditFix(e.fix);setEditDtype(e.dtype||"unplanned");setEditDurationMin(String(Math.round(e.duration_ms/60000)));setEditLine(e.line_name);setEditSection(e.section||"");setEditStation(e.station||"");setEditPartReplaced(e.part_replaced==="No"?false:e.part_replaced&&e.part_replaced!=="No"?true:null);setEditPartName(e.part_replaced&&e.part_replaced!=="No"&&e.part_replaced!=="Yes"?e.part_replaced:"");setDeleteConfirm(null);};
   const cancelEdit=()=>{setEditingId(null);setEditIssue("");setEditFix("");setEditDurationMin("");setEditLine("");setEditSection("");setEditStation("");setEditPartReplaced(null);setEditPartName("");};
-  const saveEdit=async(id: string)=>{
+  const saveEdit=async(id)=>{
     if(!editIssue.trim()||!editFix.trim())return;
     const durMs=Math.max(1,parseInt(editDurationMin)||1)*60000;
     const matchLine=LINES.find(l=>l.name===editLine);
@@ -237,10 +231,10 @@ export default function DownTrack() {
     }).eq('id',id);
     cancelEdit();
   };
-  const deleteEntry=async(id: string)=>{await supabase.from('entries').delete().eq('id',id);setDeleteConfirm(null);setEditingId(null);};
-  const cycleFlag=async(id: string,field: string)=>{
+  const deleteEntry=async(id)=>{await supabase.from('entries').delete().eq('id',id);setDeleteConfirm(null);setEditingId(null);};
+  const cycleFlag=async(id,field)=>{
     const entry=entries.find(e=>e.id===id);if(!entry)return;
-    const cur=field==="inventory_adj"?entry.inventory_adj:entry.repair_log;
+    const cur=(entry)[field] ;
     const next=cur===null?true:cur===true?false:null;
     await supabase.from('entries').update({[field]:next}).eq('id',id);
   };
@@ -258,7 +252,7 @@ export default function DownTrack() {
 
   const buildReport=()=>{
     const sorted=[...reportEntries].sort((a,b)=>new Date(a.start_time).getTime()-new Date(b.start_time).getTime());
-    const byLine: Record<string, Entry[]>={};sorted.forEach(e=>{if(!byLine[e.line_name])byLine[e.line_name]=[];byLine[e.line_name].push(e);});
+    const byLine={};sorted.forEach(e=>{if(!byLine[e.line_name])byLine[e.line_name]=[];byLine[e.line_name].push(e);});
     const totalMs=sorted.reduce((s,e)=>s+e.duration_ms,0);
     const unp=sorted.filter(e=>e.dtype==="unplanned"||!e.dtype);
     const mnt=sorted.filter(e=>e.dtype==="startup");
@@ -267,17 +261,17 @@ export default function DownTrack() {
   };
 
   const copyReport=()=>{
-    const r=reportData as Record<string, unknown>;if(!r)return;
+    const r=reportData;if(!r)return;
     let t=`SHIFT REPORT — ${r.dateLabel}\nShift: ${r.shift==="day"?"Day":"Night"}${r.techs?`  |  Techs: ${r.techs}`:""}\n${"=".repeat(50)}\n\n`;
-    t+=`Events: ${r.total}  |  Downtime: ${fmtDur(r.totalMs as number)}  |  Unplanned: ${r.unplannedCount} (${fmtDur(r.unplannedMs as number)})  |  Maintenance: ${r.maintCount} (${fmtDur(r.maintMs as number)})\n\n`;
+    t+=`Events: ${r.total}  |  Downtime: ${fmtDur(r.totalMs)}  |  Unplanned: ${r.unplannedCount} (${fmtDur(r.unplannedMs)})  |  Maintenance: ${r.maintCount} (${fmtDur(r.maintMs)})\n\n`;
     if(r.general)t+=`GENERAL ISSUES:\n${r.general}\n\n`;
     if(r.safety&&r.safety!=="N/A")t+=`SAFETY INCIDENT: ${r.safety}\n\n`;
     if(r.quality&&r.quality!=="N/A")t+=`QUALITY INCIDENT: ${r.quality}\n\n`;
     if(r.scheduledPM&&r.scheduledPM!=="N/A")t+=`SCHEDULED PM: ${r.scheduledPM}\n\n`;
     if(r.calibrations&&r.calibrations!=="N/A")t+=`CALIBRATIONS: ${r.calibrations}\n\n`;
-    const startupLines=Object.entries(r.startups as Record<string,boolean>||{}).filter(([,v])=>v).map(([k])=>k);
+    const startupLines=Object.entries(r.startups||{}).filter(([,v])=>v).map(([k])=>k);
     if(startupLines.length)t+=`STARTUP COMPLETED: ${startupLines.join(", ")}\n\n`;
-    Object.entries(r.byLine as Record<string, Entry[]>).forEach(([ln,es])=>{
+    Object.entries(r.byLine).forEach(([ln,es])=>{
       t+=`${ln} — ${es.length} events, ${fmtDur(es.reduce((s,e)=>s+e.duration_ms,0))}\n${"-".repeat(40)}\n`;
       es.forEach(e=>{
         const loc=[e.section,e.station].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(" > ");
@@ -295,6 +289,7 @@ export default function DownTrack() {
 
   // ============================================================
   // TECH SELECT SCREEN
+  if (!mounted) return null;
   // ============================================================
   if(!currentTech){
     return(
@@ -371,7 +366,7 @@ export default function DownTrack() {
     <h2 style={{fontSize:20,fontWeight:700,color:"#1B3A4B",margin:"0 0 4px"}}>{line!.name} — {sectionName}</h2>
     <p style={{fontSize:13,color:"#8C9AA5",margin:"0 0 18px",fontWeight:500}}>Select station</p>
     <div style={{display:"grid",gridTemplateColumns:`repeat(auto-fill,minmax(${many?66:80}px,1fr))`,gap:8}}>
-      {stns.map((stn: string)=>(<button key={stn} onClick={()=>goTimer(line!,sectionName,stn)} onMouseEnter={()=>setHover(`s-${stn}`)} onMouseLeave={()=>setHover(null)}
+      {stns.map((stn)=>(<button key={stn} onClick={()=>goTimer(line!,sectionName,stn)} onMouseEnter={()=>setHover(`s-${stn}`)} onMouseLeave={()=>setHover(null)}
         style={{background:hover===`s-${stn}`?"#F0F5F7":"#fff",border:`2px solid ${hover===`s-${stn}`?"#1B3A4B":"#E4E7EB"}`,borderRadius:9,padding:"12px 6px",cursor:"pointer",fontSize:many?12:14,fontWeight:700,color:"#1B3A4B",textAlign:"center",fontFamily:ff,transition:"all 0.1s"}}>{stn}</button>))}
     </div>
     <button onClick={()=>goTimer(line!,sectionName,"Other")} onMouseEnter={()=>setHover("s-other")} onMouseLeave={()=>setHover(null)}
@@ -489,7 +484,7 @@ export default function DownTrack() {
   // SHIFT SUMMARY + REPORT (same as before, abbreviated for space)
   // ============================================================
   const renderSummaryForm=()=>{
-    const smallInput: React.CSSProperties={...inputS,minHeight:"auto",padding:"8px 12px"};
+    const smallInput={...inputS,minHeight:"auto",padding:"8px 12px"};
     return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(15,30,40,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,overflowY:"auto",padding:20}}>
       <div style={{background:"#fff",borderRadius:16,maxWidth:520,width:"100%",maxHeight:"90vh",overflowY:"auto",padding:"24px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -525,10 +520,10 @@ export default function DownTrack() {
   };
 
   const renderReport=()=>{
-    const r=reportData as Record<string, unknown>;if(!r)return null;
-    const statBox=(n: string | number,l: string)=>(<div style={{flex:1,textAlign:"center",padding:"14px 8px"}}><div style={{fontSize:24,fontWeight:800,color:"#1B3A4B"}}>{n}</div><div style={{fontSize:9,color:"#8C9AA5",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginTop:2}}>{l}</div></div>);
-    const startupLines=Object.entries(r.startups as Record<string,boolean>||{}).filter(([,v])=>v).map(([k])=>k);
-    const byLine = r.byLine as Record<string, Entry[]>;
+    const r=reportData;if(!r)return null;
+    const statBox=(n | number,l)=>(<div style={{flex:1,textAlign:"center",padding:"14px 8px"}}><div style={{fontSize:24,fontWeight:800,color:"#1B3A4B"}}>{n}</div><div style={{fontSize:9,color:"#8C9AA5",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginTop:2}}>{l}</div></div>);
+    const startupLines=Object.entries(r.startups||{}).filter(([,v])=>v).map(([k])=>k);
+    const byLine = r.byLine;
     return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(15,30,40,0.92)",display:"flex",flexDirection:"column",zIndex:200}}>
       <div style={{width:"100%",maxWidth:780,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 4px",flexShrink:0}}>
         <div style={{fontSize:14,fontWeight:700,color:"#fff"}}>Shift Report</div>
@@ -543,30 +538,30 @@ export default function DownTrack() {
           <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:700,textTransform:"uppercase",letterSpacing:2,marginBottom:6}}>DownTrack</div>
           <div style={{fontSize:24,fontWeight:800,color:"#fff"}}>Shift Report</div>
           <div style={{display:"flex",gap:16,marginTop:8,flexWrap:"wrap"}}>
-            <span style={{fontSize:13,color:"rgba(255,255,255,0.7)"}}>{r.dateLabel as string}</span>
+            <span style={{fontSize:13,color:"rgba(255,255,255,0.7)"}}>{r.dateLabel}</span>
             <span style={{fontSize:13,color:"rgba(255,255,255,0.5)"}}>|</span>
             <span style={{fontSize:13,color:"rgba(255,255,255,0.7)"}}>{r.shift==="day"?"Day Shift":"Night Shift"}</span>
-            {r.techs&&<><span style={{fontSize:13,color:"rgba(255,255,255,0.5)"}}>|</span><span style={{fontSize:13,color:"rgba(255,255,255,0.7)"}}>Techs: {r.techs as string}</span></>}
+            {r.techs&&<><span style={{fontSize:13,color:"rgba(255,255,255,0.5)"}}>|</span><span style={{fontSize:13,color:"rgba(255,255,255,0.7)"}}>Techs: {r.techs}</span></>}
           </div>
         </div>
         <div style={{display:"flex",borderBottom:"1px solid #E8ECEF"}}>
-          {statBox(r.total as number,"Events")}<div style={{width:1,background:"#E8ECEF"}}/>{statBox(fmtDur(r.totalMs as number),"Downtime")}<div style={{width:1,background:"#E8ECEF"}}/>{statBox(r.unplannedCount as number,`Unplanned (${fmtDur(r.unplannedMs as number)})`)}<div style={{width:1,background:"#E8ECEF"}}/>{statBox(r.maintCount as number,`Maint (${fmtDur(r.maintMs as number)})`)}
+          {statBox(r.total,"Events")}<div style={{width:1,background:"#E8ECEF"}}/>{statBox(fmtDur(r.totalMs),"Downtime")}<div style={{width:1,background:"#E8ECEF"}}/>{statBox(r.unplannedCount,`Unplanned (${fmtDur(r.unplannedMs)})`)}<div style={{width:1,background:"#E8ECEF"}}/>{statBox(r.maintCount,`Maint (${fmtDur(r.maintMs)})`)}
         </div>
         {(r.general||r.safety!=="N/A"||r.quality!=="N/A"||r.scheduledPM!=="N/A"||r.calibrations!=="N/A"||startupLines.length>0)&&(
           <div style={{padding:"16px 28px",borderBottom:"1px solid #E8ECEF",background:"#FAFBFC"}}>
             {startupLines.length>0&&<div style={{marginBottom:8}}><span style={{fontSize:10,fontWeight:700,color:"#059669",textTransform:"uppercase",letterSpacing:0.8}}>Startup Completed: </span><span style={{fontSize:12,color:"#2D2D2D"}}>{startupLines.join(", ")}</span></div>}
-            {r.general&&<div style={{marginBottom:8}}><span style={{fontSize:10,fontWeight:700,color:"#8C9AA5",textTransform:"uppercase",letterSpacing:0.8}}>General: </span><span style={{fontSize:12,color:"#2D2D2D"}}>{r.general as string}</span></div>}
+            {r.general&&<div style={{marginBottom:8}}><span style={{fontSize:10,fontWeight:700,color:"#8C9AA5",textTransform:"uppercase",letterSpacing:0.8}}>General: </span><span style={{fontSize:12,color:"#2D2D2D"}}>{r.general}</span></div>}
           </div>
         )}
         <div style={{padding:"20px 28px 28px"}}>
           {Object.entries(byLine).map(([lineName,lineEntries])=>(<div key={lineName} style={{marginBottom:20}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderBottom:"2px solid #1B3A4B",paddingBottom:6,marginBottom:8}}>
               <span style={{fontSize:14,fontWeight:700,color:"#1B3A4B"}}>{lineName}</span>
-              <span style={{fontSize:11,color:"#8C9AA5",fontWeight:600}}>{lineEntries.length} events — {fmtDur(lineEntries.reduce((s: number,e: Entry)=>s+e.duration_ms,0))}</span>
+              <span style={{fontSize:11,color:"#8C9AA5",fontWeight:600}}>{lineEntries.length} events — {fmtDur(lineEntries.reduce((s,e: Entry)=>s+e.duration_ms,0))}</span>
             </div>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr>{["Time","Tech","Location","Type","Dur","Issue","Fix","Part"].map(h=>(<th key={h} style={{textAlign:"left",padding:"5px 6px",fontSize:9,color:"#8C9AA5",fontWeight:700,textTransform:"uppercase",letterSpacing:0.6,borderBottom:"2px solid #E8ECEF"}}>{h}</th>))}</tr></thead>
-              <tbody>{lineEntries.map((e: Entry,i: number)=>{
+              <tbody>{lineEntries.map((e: Entry,i)=>{
                 const loc2=[e.section,e.station].filter(Boolean).filter((v,j,a)=>a.indexOf(v)===j).join(" › ");
                 const isSt=e.dtype==="startup";
                 return(<tr key={i} style={{background:i%2===0?"#fff":"#FAFBFC"}}>
@@ -583,7 +578,7 @@ export default function DownTrack() {
             </table>
           </div>))}
         </div>
-        <div style={{padding:"12px 28px",borderTop:"1px solid #E8ECEF",display:"flex",justifyContent:"space-between",fontSize:10,color:"#8C9AA5"}}><span>DownTrack Shift Report</span><span>{r.dateLabel as string}</span></div>
+        <div style={{padding:"12px 28px",borderTop:"1px solid #E8ECEF",display:"flex",justifyContent:"space-between",fontSize:10,color:"#8C9AA5"}}><span>DownTrack Shift Report</span><span>{r.dateLabel}</span></div>
       </div>
       </div>
     </div>);
@@ -592,7 +587,6 @@ export default function DownTrack() {
   // ============================================================
   // RENDER
   // ============================================================
-  if (!mounted) return null;
   return(
     <div style={{fontFamily:ff,minHeight:"100vh",background:"#F4F5F7",color:"#1a1a1a"}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes scaleIn{from{transform:scale(0.9);opacity:0}to{transform:scale(1);opacity:1}}textarea:focus,select:focus,input:focus{border-color:#2A6070 !important;outline:none;}button:active{transform:scale(0.97);}::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#D0D5DA;border-radius:3px;}*{-webkit-user-select:auto;user-select:auto;}`}</style>
@@ -620,5 +614,3 @@ export default function DownTrack() {
       {reportData&&renderReport()}
       {success&&(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(27,58,75,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}><div style={{background:"#fff",borderRadius:20,padding:"44px 52px",textAlign:"center",animation:"scaleIn 0.25s ease"}}><div style={{fontSize:44,marginBottom:10}}>✓</div><div style={{fontSize:20,fontWeight:800,color:"#1B3A4B"}}>Logged</div><div style={{fontSize:13,color:"#8C9AA5",marginTop:4}}>Downtime event saved</div></div></div>)}
     </div>
-  );
-}

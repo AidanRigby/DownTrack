@@ -1,6 +1,5 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -9,15 +8,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
-```
-
-Save it. Then push:
-```
-git add .
-```
-```
-git commit -m "Fix build config"
-```
-```
-git push
+module.exports = nextConfig;
